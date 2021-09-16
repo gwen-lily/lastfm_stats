@@ -17,6 +17,7 @@ import pylast
 import pytz
 import logging
 import numpy as np
+import sys
 
 # logging.basicConfig(level=logging.DEBUG)
 
@@ -398,6 +399,10 @@ if __name__ == '__main__':
 	parser.add_argument('-library-log',
 	                    type=str, metavar='F', default=r'music_library.csv',
 	                    help='The csv file where you want to store your music library information.')
+	parser.add_argument('--rebuild-library-log',
+	                    action='store_true',
+	                    help="Add this flag to manually rebuild the library log and exit afterward."
+	                    )
 	parser.add_argument('-lost-and-found-log',
 	                    type=str, metavar='F', default=r'A:\pyprojects\music\lastfm_stats\lost_and_found_log.csv',
 	                    help='Where to store tracks in your library that are not automatically found from scrobble data')
@@ -418,12 +423,13 @@ if __name__ == '__main__':
 	#                     help='The password to the LastFM account username provided.')
 	args = parser.parse_args()
 
-	try:
-		assert 0 < len(args.date_range) <= 2
-
-	except AssertionError:
-		raise Exception('''Provide a date or date range to cover. If you provide limited information, like a year or a 
-        year and month, the entirety of that duration will be included''')
+	# try:
+	# 	assert 0 < len(args.date_range) <= 2
+	start_datetime, end_datetime = datetime_range(args.date_range)
+	#
+	# except AssertionError:
+	# 	raise Exception('''Provide a date or date range to cover. If you provide limited information, like a year or a
+    #     year and month, the entirety of that duration will be included''')
 
 	try:
 		library_dir = pathlib.Path(args.library_dir)
@@ -432,17 +438,17 @@ if __name__ == '__main__':
 	except AssertionError:
 		raise Exception('''The library directory you gave does not exist''')
 
-	start_datetime, end_datetime = datetime_range(args.date_range)
 	library_file = pathlib.Path(args.library_log)
 
-	if library_file.exists():
-		mus_lib_df = load_from_csv(pathlib.Path(args.library_log))
-
-	else:
+	if args.rebuild_library_log or not library_file.exists():
 		print('starting library load')
 		library = load_library(library_dir)
 		mus_lib_df = log_library(library, library_file)
 		print('finished library load')
+		sys.exit(0)
+
+	else:
+		mus_lib_df = load_from_csv(pathlib.Path(args.library_log))
 
 	mus_lib_df['artist'] = [x.split(r' / ')[0] for x in mus_lib_df['artist']]
 	mus_lib_df['play_count'] = 0
