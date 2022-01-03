@@ -86,6 +86,17 @@ def request_tracks_from_date_range(network: pylast.LastFMNetwork, time_from: dt.
                                    time_to: dt.datetime = None, limit: int = None):
 	lastfm_user = network.get_user(network.username)
 
+	# lastfm_user = network.get_user('Nohadon')
+	# lastfm_user = network.get_user('oisailing')
+	# lastfm_user = network.get_user('erAc103')
+
+	time_from_timestamp = convert_local_datetime_to_unix_timestamp(time_from)
+	time_to_timestamp = convert_local_datetime_to_unix_timestamp(time_to)
+
+	print('range start:', time_from_timestamp)
+	print('range end:', time_to_timestamp)
+
+
 	date_range_tracks = lastfm_user.get_recent_tracks(
 		limit=limit,
 		cacheable=True,
@@ -94,6 +105,7 @@ def request_tracks_from_date_range(network: pylast.LastFMNetwork, time_from: dt.
 	)
 
 	return date_range_tracks
+
 
 def convert_local_datetime_to_unix_timestamp(d: dt.datetime) -> int:
 	if not d.tzinfo:
@@ -194,10 +206,9 @@ def load_library(music_library_dir: pathlib.Path) -> list:
 	artist_folders = list(artist_folders)
 
 	for artist_folder in artist_folders:
-
 		album_folders = [x for x in artist_folder.iterdir() if x.is_dir()]
-		for album_folder in album_folders:
 
+		for album_folder in album_folders:
 			album_tracks = [eyed3.load(x) for x in album_folder.iterdir() if is_audio_file(x)]
 
 			for track in album_tracks:
@@ -229,10 +240,16 @@ def log_library(music_library_tracks: list, music_library_log_file: pathlib.Path
 		track_dict = {'filepath': track.path}
 
 		for dc in tag_data_columns:
-			track_dict[dc] = track.tag.__getattribute__(dc)
+			try:
+				track_dict[dc] = track.tag.__getattribute__(dc)
+			except AttributeError:
+				track_dict[dc] = None
 
 		for dc in info_data_columns:
-			track_dict[dc] = track.info.__getattribute__(dc)
+			try:
+				track_dict[dc] = track.info.__getattribute__(dc)
+			except AttributeError:
+				track_dict[dc] = None
 
 		library_data.append(track_dict)
 
@@ -308,6 +325,7 @@ def search_for_lost_track(library_dir: pathlib.Path, lookup_tuple: Tuple[str, st
 			break
 
 	if not artist_match_found:
+		print(artist, album, title)
 		if equal_except_case(artist, potential_artist_matches[0]):
 			artist_dir = library_dir.joinpath(potential_artist_matches[0])
 			artist_correction = (artist, potential_artist_matches[0])
@@ -394,20 +412,20 @@ if __name__ == '__main__':
 	                    help='''Provide a date or date range to track in YYYY[-MM][-DD][_hh][-mm][-ss] format. The range
 	                    is inclusive and accounts for limited information.''')
 	parser.add_argument('-library-dir',
-	                    type=str, metavar='d', default=r'A:\pyprojects\music\test_library_dir',
+	                    type=str, metavar='d', default=r'A:\music\M',
 	                    help='The location of your music library on your machine.')
 	parser.add_argument('-library-log',
-	                    type=str, metavar='F', default=r'music_library.csv',
+	                    type=str, metavar='F', default=r'main-config\music_library.csv',
 	                    help='The csv file where you want to store your music library information.')
 	parser.add_argument('--rebuild-library-log',
 	                    action='store_true',
 	                    help="Add this flag to manually rebuild the library log and exit afterward."
 	                    )
 	parser.add_argument('-lost-and-found-log',
-	                    type=str, metavar='F', default=r'A:\pyprojects\music\lastfm_stats\lost_and_found_log.csv',
+	                    type=str, metavar='F', default=r'A:\pyprojects\music\lastfm_stats\main-config\lost_and_found_log.csv',
 	                    help='Where to store tracks in your library that are not automatically found from scrobble data')
 	parser.add_argument('-ignore-list',
-	                    type=str, metavar='F', default=r'ignore_list.csv',
+	                    type=str, metavar='F', default=r'main-config\ignore_list.csv',
 	                    help='''The location of an ignore list file, which can automatically ignore files not in your 
 	                    local library''')
 	parser.add_argument('--clean-logs',
@@ -426,6 +444,8 @@ if __name__ == '__main__':
 	# try:
 	# 	assert 0 < len(args.date_range) <= 2
 	start_datetime, end_datetime = datetime_range(args.date_range)
+	print('range start:', start_datetime)
+	print('range end:', end_datetime)
 	#
 	# except AssertionError:
 	# 	raise Exception('''Provide a date or date range to cover. If you provide limited information, like a year or a
@@ -505,13 +525,15 @@ if __name__ == '__main__':
 		time_to=end_datetime,
 		limit=None
 	)
+	number_of_scrobbles = len(tracks)
+	print('scrobble count:', number_of_scrobbles)
 
 	listens_dict = {}
 	session_artist_corrections = []
 	session_album_corrections = []
 	session_title_corrections = []
 
-	for t in sorted(tracks, key= lambda tt: [str(tt.track.artist), str(tt.album), str(tt.track.title)]):
+	for t in sorted(tracks, key=lambda tt: [str(tt.track.artist), str(tt.album), str(tt.track.title)]):
 		artist = str(t.track.artist)
 		album = str(t.album)
 		title = str(t.track.title)
@@ -609,7 +631,12 @@ if __name__ == '__main__':
 
 
 		# now that we have matched the scrobble data to a matching file / pandas dataframe row, increment time stats
-		assert match_index
+		try:
+			assert match_index
+		except AssertionError as exc:
+			if not match_index == 0:
+				continue
+
 
 		mus_lib_df.loc[match_index, 'play_count'] += 1
 		mus_lib_df.loc[match_index, 'time_played'] += mus_lib_df.loc[match_index, 'time_secs']
@@ -633,7 +660,10 @@ if __name__ == '__main__':
 			album_tuple = (album_artist, album_name)
 			album_list.append(album_tuple)
 
-	album_list = sorted(list(set(album_list)))
+	try:
+		album_list = sorted(list(set(album_list)))
+	except TypeError:
+		album_list = album_list
 
 	title_name_list = list(set(listens_df['title'].values))
 	title_list = []
@@ -647,7 +677,10 @@ if __name__ == '__main__':
 			title_tuple = (title_artist, title_album, title_name)
 			title_list.append(title_tuple)
 
-	title_list = sorted(list(set(title_list)))  # losing some unique track information, I don't care right now
+	try:
+		title_list = sorted(list(set(title_list)))  # losing some unique track information, I don't care right now
+	except TypeError:
+		title_list = title_list
 
 	dt_fmt_write = r'%Y-%m-%d_%H-%M-%S'
 	out_dir = pathlib.Path.cwd().joinpath('--'.join(['output', dt.datetime.now().strftime(dt_fmt_write),
@@ -732,12 +765,10 @@ if __name__ == '__main__':
 		df = pd.DataFrame(lost_and_found_track_dicts)
 
 		while True:
-
 			try:
 				if lost_and_found_already_existed:
 					header = False
 					mode = 'a'
-
 				else:
 					header = True
 					mode = 'w'
@@ -749,7 +780,6 @@ if __name__ == '__main__':
 				          encoding='utf-8',
 				          date_format=dt_fmt,
 				          )
-
 				break
 
 			except PermissionError as E:
