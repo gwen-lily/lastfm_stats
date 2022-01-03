@@ -1,5 +1,4 @@
-# H1
-**last-fm-stats by noahgill409**
+# last-fm-stats by noahgill409
 ---
 ## FAQ
 Q. What does it do? \
