@@ -1,4 +1,4 @@
-# last-fm-stats by noahgill409
+# lastfm-stats by noahgill409
 ---
 ## FAQ
 Q. What does it do? \
@@ -9,7 +9,9 @@ A. Yes, but only for me or someone with a music library structure quite like min
 
 Q. What can I do with this data? \
 A. You can use it to construct images, grids, collages, and any other sort of data visualization you like! Consider checking out [griddler-url] for ideas.
+
 ---
+
 ## Example output
 
 [2020 year end report][1] \
