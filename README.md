@@ -1,4 +1,4 @@
-# lastfm-stats by noahgill409
+# lastfm-stats by gwen
 ---
 ## FAQ
 Q. What does it do? \
